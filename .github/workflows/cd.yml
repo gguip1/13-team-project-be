@@ -1,7 +1,16 @@
-name: BE CD Pipeline
+# =============================================================================
+# Spring Boot Backend CD Pipeline
+# =============================================================================
+# 트리거: CI 완료 후 (main 브랜치만)
+# 순서: 아티팩트 다운로드 → 백업 → 배포 → Smoke Test → 알림
+# =============================================================================
+
+name: Backend CD
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Backend CI"]
+    types: [completed]
     branches: [main]
 
 env:
@@ -11,15 +20,17 @@ env:
 
 jobs:
   deploy:
+    name: Deploy to EC2
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
-      # ===== Stage 1: 아티팩트 준비 =====
-      - name: Download JAR from CI
+      # ===== Stage 1: 아티팩트 다운로드 =====
+      - name: Download JAR Artifact
         uses: dawidd6/action-download-artifact@v3
         with:
-          workflow: be-ci.yml
-          branch: main
+          workflow: ci.yml
+          run_id: ${{ github.event.workflow_run.id }}
           name: application-jar
           path: ./artifact
 
@@ -34,7 +45,7 @@ jobs:
       # ===== Stage 2: 서버 백업 =====
       - name: Backup Current JAR
         run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
             mkdir -p ${{ env.BACKUP_PATH }}
 
             if [ -f "${{ env.DEPLOY_PATH }}/${{ env.JAR_NAME }}" ]; then
@@ -55,35 +66,35 @@ jobs:
 
       - name: Deploy Application
         run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
             cd ${{ env.DEPLOY_PATH }}
             mkdir -p logs
 
-            # 기존 프로세스 종료 (SIGTERM → 30초 대기 → SIGKILL)
-            PID=$(pgrep -f "${{ env.JAR_NAME }}" || true)
-            if [ -n "$PID" ]; then
-              echo "프로세스 종료 중... (PID: $PID)"
-              kill -15 $PID
+            PID=\$(pgrep -f "${{ env.JAR_NAME }}" || true)
+            if [ -n "\$PID" ]; then
+              echo "프로세스 종료 중... (PID: \$PID)"
+              kill -15 \$PID
 
               for i in {1..30}; do
-                if ! ps -p $PID > /dev/null 2>&1; then
+                if ! ps -p \$PID > /dev/null 2>&1; then
                   echo "정상 종료"
                   break
                 fi
                 sleep 1
               done
 
-              if ps -p $PID > /dev/null 2>&1; then
-                kill -9 $PID
+              if ps -p \$PID > /dev/null 2>&1; then
+                kill -9 \$PID
                 sleep 2
               fi
             fi
 
-            # 새 JAR 실행
-            nohup java -jar \
-              -Dspring.profiles.active=prod \
-              ${{ env.JAR_NAME }} \
-              > logs/app.log 2>&1 &
+            DB_URL="${{ secrets.DB_URL }}" \
+            DB_USERNAME="${{ secrets.DB_USERNAME }}" \
+            DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+            REDIS_HOST="${{ secrets.REDIS_HOST }}" \
+            REDIS_PORT="${{ secrets.REDIS_PORT }}" \
+            nohup java -jar ${{ env.JAR_NAME }} > logs/app.log 2>&1 &
 
             sleep 10
             echo "배포 완료"
@@ -99,13 +110,11 @@ jobs:
           for i in $(seq 1 $MAX_RETRY); do
             echo "Smoke Test $i/$MAX_RETRY..."
 
-            # Health Check
             HEALTH=$(curl -s -o /dev/null -w "%{http_code}" \
               --max-time 10 \
               http://${{ secrets.EC2_HOST }}:8080/actuator/health || echo "000")
 
             if [ "$HEALTH" = "200" ]; then
-              # API 테스트
               API=$(curl -s -o /dev/null -w "%{http_code}" \
                 --max-time 10 \
                 http://${{ secrets.EC2_HOST }}:8080/api/ping || echo "000")
@@ -126,24 +135,24 @@ jobs:
       - name: Rollback on Failure
         if: failure() && steps.smoke_test.outcome == 'failure'
         run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
             cd ${{ env.DEPLOY_PATH }}
 
-            # 프로세스 강제 종료
-            PID=$(pgrep -f "${{ env.JAR_NAME }}" || true)
-            if [ -n "$PID" ]; then
-              kill -9 $PID
+            PID=\$(pgrep -f "${{ env.JAR_NAME }}" || true)
+            if [ -n "\$PID" ]; then
+              kill -9 \$PID
               sleep 2
             fi
 
-            # 백업 복원
             if [ -f "${{ env.BACKUP_PATH }}/${{ env.JAR_NAME }}.backup" ]; then
               cp ${{ env.BACKUP_PATH }}/${{ env.JAR_NAME }}.backup ${{ env.DEPLOY_PATH }}/${{ env.JAR_NAME }}
 
-              nohup java -jar \
-                -Dspring.profiles.active=prod \
-                ${{ env.JAR_NAME }} \
-                > logs/app.log 2>&1 &
+              DB_URL="${{ secrets.DB_URL }}" \
+              DB_USERNAME="${{ secrets.DB_USERNAME }}" \
+              DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+              REDIS_HOST="${{ secrets.REDIS_HOST }}" \
+              REDIS_PORT="${{ secrets.REDIS_PORT }}" \
+              nohup java -jar ${{ env.JAR_NAME }} > logs/app.log 2>&1 &
 
               sleep 10
               echo "롤백 완료"
@@ -153,7 +162,7 @@ jobs:
             fi
           EOF
 
-      # ===== Stage 5: 알림 발송 =====
+      # ===== Stage 5: 알림 =====
       - name: Notify Success
         if: success()
         run: |
@@ -163,8 +172,8 @@ jobs:
                 "title": "BE 배포 완료",
                 "color": 5763719,
                 "fields": [
-                  {"name": "브랜치", "value": "${{ github.ref_name }}", "inline": true},
-                  {"name": "커밋", "value": "`${{ github.sha }}`", "inline": true}
+                  {"name": "브랜치", "value": "main", "inline": true},
+                  {"name": "CI Run", "value": "#${{ github.event.workflow_run.run_number }}", "inline": true}
                 ],
                 "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
               }]
@@ -181,8 +190,8 @@ jobs:
                 "description": "롤백이 실행되었습니다.",
                 "color": 15548997,
                 "fields": [
-                  {"name": "브랜치", "value": "${{ github.ref_name }}", "inline": true},
-                  {"name": "커밋", "value": "`${{ github.sha }}`", "inline": true},
+                  {"name": "브랜치", "value": "main", "inline": true},
+                  {"name": "CI Run", "value": "#${{ github.event.workflow_run.run_number }}", "inline": true},
                   {"name": "로그", "value": "[확인하기](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})", "inline": false}
                 ],
                 "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"

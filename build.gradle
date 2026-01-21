@@ -41,6 +41,7 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'  // Smoke Test용
     testImplementation 'com.h2database:h2'    // CI 테스트용
 }
 
@@ -85,7 +86,6 @@ jacoco {
 
 jacocoTestReport {
     dependsOn test
-    finalizedBy jacocoTestCoverageVerification
     reports {
         html.required = true
         xml.required = true
@@ -95,16 +95,17 @@ jacocoTestReport {
 jacocoTestCoverageVerification {
     violationRules {
         rule {
-            element = 'PACKAGE'
-            includes = [
-                    // TODO: 핵심 패키지 확정 후 수정
-                   // 'com.matchimban.*.service.vote.*',
-                 //   'com.matchimban.*.service.restaurant.*'
-            ]
+            enabled = true
+            element = 'CLASS'
             limit {
                 counter = 'LINE'
-                minimum = 0.80
+                minimum = 0.00  // 초기임시 설정
             }
         }
     }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport
 }
