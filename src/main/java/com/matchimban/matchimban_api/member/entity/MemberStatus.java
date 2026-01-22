@@ -1,6 +1,6 @@
 package com.matchimban.matchimban_api.member.entity;
 
-public enum UserStatus {
+public enum MemberStatus {
 	PENDING,
 	ACTIVE,
 	DELETED

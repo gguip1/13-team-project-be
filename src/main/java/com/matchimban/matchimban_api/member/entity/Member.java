@@ -19,7 +19,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "users")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class User {
+public class Member {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "users_seq")
@@ -37,7 +37,7 @@ public class User {
 
 	@Enumerated(EnumType.STRING)
 	@Column(length = 10)
-	private UserStatus status;
+	private MemberStatus status;
 
 	@Column(name = "created_at")
 	private LocalDateTime createdAt;
