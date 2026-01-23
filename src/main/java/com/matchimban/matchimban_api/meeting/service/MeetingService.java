@@ -150,9 +150,9 @@ public class MeetingService {
                 req.getTargetHeadcount(),
                 req.getSearchRadiusM(),
                 req.getSwipeCount(),
-                req.getIsExceptMeat(),
-                req.getIsExceptBar(),
-                req.getIsQuickMeeting()
+                req.getExceptMeat(),
+                req.getExceptBar(),
+                req.getQuickMeeting()
         );
 
         return new UpdateMeetingResponse(meeting.getId());

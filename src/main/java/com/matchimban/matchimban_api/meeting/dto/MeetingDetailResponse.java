@@ -43,13 +43,13 @@ public class MeetingDetailResponse {
     private int swipeCount;
 
     @Schema(description = "고깃집 제외 여부")
-    private boolean isExceptMeat;
+    private boolean exceptMeat;
 
     @Schema(description = "술집 제외 여부")
-    private boolean isExceptBar;
+    private boolean exceptBar;
 
     @Schema(description = "퀵 모임 여부")
-    private boolean isQuickMeeting;
+    private boolean quickMeeting;
 
     @Schema(description = "초대 코드")
     private String inviteCode;
