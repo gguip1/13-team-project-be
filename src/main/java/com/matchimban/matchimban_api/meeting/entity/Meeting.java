@@ -100,9 +100,9 @@ public class Meeting {
             Integer targetHeadcount,
             Integer searchRadiusM,
             Integer swipeCount,
-            Boolean isExceptMeat,
-            Boolean isExceptBar,
-            Boolean isQuickMeeting
+            Boolean exceptMeat,
+            Boolean exceptBar,
+            Boolean quickMeeting
     ) {
         if (title != null) this.title = title;
         if (scheduledAt != null) this.scheduledAt = scheduledAt;
@@ -116,9 +116,9 @@ public class Meeting {
         if (searchRadiusM != null) this.searchRadiusM = searchRadiusM;
         if (swipeCount != null) this.swipeCount = swipeCount;
 
-        if (isExceptMeat != null) this.isExceptMeat = isExceptMeat;
-        if (isExceptBar != null) this.isExceptBar = isExceptBar;
-        if (isQuickMeeting != null) this.isQuickMeeting = isQuickMeeting;
+        if (exceptMeat != null) this.isExceptMeat = isExceptMeat;
+        if (exceptBar != null) this.isExceptBar = isExceptBar;
+        if (quickMeeting != null) this.isQuickMeeting = isQuickMeeting;
     }
 
 }
