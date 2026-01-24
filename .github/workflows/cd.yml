@@ -122,7 +122,7 @@ jobs:
 
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
               --max-time 10 \
-              http://${{ secrets.EC2_HOST }}:8080/actuator/health || echo "000")
+              https://api.moyeobab.com/actuator/health || echo "000")
 
             echo "HTTP Code: $HTTP_CODE"
 
