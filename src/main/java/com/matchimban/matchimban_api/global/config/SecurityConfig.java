@@ -1,6 +1,7 @@
 package com.matchimban.matchimban_api.global.config;
 
 import com.matchimban.matchimban_api.auth.jwt.JwtAuthenticationFilter;
+import com.matchimban.matchimban_api.auth.jwt.MemberStatusFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -23,7 +24,8 @@ public class SecurityConfig {
 	@Bean
 	public SecurityFilterChain securityFilterChain(
 		HttpSecurity http,
-		JwtAuthenticationFilter jwtAuthenticationFilter //CSRF 토큰을 쿠키에 저장하는 레포지토리
+		JwtAuthenticationFilter jwtAuthenticationFilter,
+		MemberStatusFilter memberStatusFilter
 	) throws Exception {
 		CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
 		csrfTokenRepository.setCookieName("csrf_token");
@@ -39,6 +41,7 @@ public class SecurityConfig {
 				.csrfTokenRequestHandler(csrfRequestHandler)
 			)
 			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+			.addFilterAfter(memberStatusFilter, JwtAuthenticationFilter.class)
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(
 					"/swagger-ui/**",

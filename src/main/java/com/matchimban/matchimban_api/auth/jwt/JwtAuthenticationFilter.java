@@ -28,7 +28,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	}
 
 	@Override
-	protected void doFilterInternal(
+	protected void doFilterInternal( // 실제 필터 로직이 실행되는 지점
 		HttpServletRequest request,
 		HttpServletResponse response,
 		FilterChain filterChain
