@@ -48,12 +48,12 @@ public class SecurityConfig {
 					"/v3/api-docs/**",
 					"/swagger-ui.html",
 					"/api/v1/auth/**",
-					"/api/ping", "/api/**",
+					"/api/ping",
 					"/actuator/health"
 				)
 				.permitAll()
 				.anyRequest()
-				.authenticated()
+				.authenticated()// 위에 없는 건 JWT 필요
 			)
 			.httpBasic(AbstractHttpConfigurer::disable)
 			.formLogin(AbstractHttpConfigurer::disable);

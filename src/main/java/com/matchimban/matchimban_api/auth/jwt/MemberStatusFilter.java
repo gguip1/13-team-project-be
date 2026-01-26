@@ -21,7 +21,7 @@ public class MemberStatusFilter extends OncePerRequestFilter {
 	private static final String ONBOARDING_BASE_PATH = "/api/v1/onboarding";
 	private static final String AGREEMENTS_PATH = ONBOARDING_BASE_PATH + "/agreements";
 	private static final String PREFERENCES_PATH = ONBOARDING_BASE_PATH + "/preferences";
-	private static final String USER_ME_PATH = "/api/v1/user/me";
+	private static final String USER_ME_PATH = "/api/v1/member/me";
 
 	private final ObjectMapper objectMapper;
 
