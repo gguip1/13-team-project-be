@@ -6,6 +6,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -21,14 +22,15 @@ import org.springframework.stereotype.Component;
 @Component // DI를 위해서 붙임
 public class JwtTokenProvider {
 
-	private static final int MIN_SECRET_BYTES = 32; //최소 secret 길이 기준
-
 	private final JwtProperties properties;
-	private final SecretKey key;
+	private SecretKey key;
 
 	public JwtTokenProvider(JwtProperties properties) {
 		this.properties = properties;
-		validateProperties(properties); // 설정이 잘못되면 즉시 에러를 뱉음
+	}
+
+	@PostConstruct
+	private void initialize() {
 		this.key = Keys.hmacShaKeyFor(properties.secret().getBytes(StandardCharsets.UTF_8));
 	}
 
@@ -84,24 +86,5 @@ public class JwtTokenProvider {
 		}
 	}
 
-	private void validateProperties(JwtProperties properties) {
-		if (properties.secret() == null || properties.secret().isBlank()) {
-			throw new IllegalStateException("JWT secret is missing");
-		}
-		if (properties.secret().getBytes(StandardCharsets.UTF_8).length < MIN_SECRET_BYTES) {
-			throw new IllegalStateException("JWT secret must be at least 32 bytes");
-		}
-		if (properties.accessTokenExpireMinutes() <= 0) {
-			throw new IllegalStateException("JWT access token expiration must be positive");
-		}
-		if (properties.issuer() == null || properties.issuer().isBlank()) {
-			throw new IllegalStateException("JWT issuer is missing");
-		}
-		if (properties.cookieName() == null || properties.cookieName().isBlank()) {
-			throw new IllegalStateException("JWT cookie name is missing");
-		}
-		if (properties.cookieSameSite() == null || properties.cookieSameSite().isBlank()) {
-			throw new IllegalStateException("JWT cookie sameSite is missing");
-		}
-	}
+	// 설정 검증은 @ConfigurationProperties + @Validated에서 처리한다.
 }
