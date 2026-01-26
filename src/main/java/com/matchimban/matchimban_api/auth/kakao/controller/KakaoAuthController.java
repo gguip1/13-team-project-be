@@ -5,6 +5,7 @@ import com.matchimban.matchimban_api.auth.kakao.dto.KakaoTokenResponse;
 import com.matchimban.matchimban_api.auth.kakao.dto.KakaoUserInfo;
 import com.matchimban.matchimban_api.auth.kakao.service.KakaoAuthService;
 import com.matchimban.matchimban_api.auth.kakao.service.KakaoMemberService;
+import com.matchimban.matchimban_api.auth.jwt.JwtTokenProvider;
 import com.matchimban.matchimban_api.member.entity.Member;
 import com.matchimban.matchimban_api.global.error.ApiException;
 import com.matchimban.matchimban_api.global.swagger.CommonAuthErrorResponses;
@@ -31,13 +32,16 @@ public class KakaoAuthController {
 
 	private final KakaoAuthService kakaoAuthService;
 	private final KakaoMemberService kakaoMemberService;
+	private final JwtTokenProvider jwtTokenProvider;
 
 	public KakaoAuthController(
 		KakaoAuthService kakaoAuthService,
-		KakaoMemberService kakaoMemberService
+		KakaoMemberService kakaoMemberService,
+		JwtTokenProvider jwtTokenProvider
 	) {
 		this.kakaoAuthService = kakaoAuthService;
 		this.kakaoMemberService = kakaoMemberService;
+		this.jwtTokenProvider = jwtTokenProvider;
 	}
 
 	@Operation(summary = "카카오 로그인 시작", description = "카카오 인가 페이지로 302 Redirect")
@@ -79,10 +83,12 @@ public class KakaoAuthController {
 		KakaoUserInfo userInfo = kakaoAuthService.requestUserInfo(tokenResponse.accessToken());
 		Member member = kakaoMemberService.findOrCreateMember(userInfo);
 
-		log.info("Member linked. id={}, status={}", member.getId(), member.getStatus());
-
 		HttpHeaders headers = new HttpHeaders();
+		String accessToken = jwtTokenProvider.createAccessToken(member);
+		headers.add(HttpHeaders.SET_COOKIE, jwtTokenProvider.createAccessTokenCookie(accessToken).toString());
 		headers.setLocation(URI.create("/"));
+
+		log.info("Member linked. id={}, status={}", member.getId(), member.getStatus());
 		return new ResponseEntity<>(headers, HttpStatus.FOUND);
 	}
 }
