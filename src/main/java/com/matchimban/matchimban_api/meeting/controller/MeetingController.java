@@ -8,6 +8,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -39,7 +41,7 @@ public class MeetingController {
     public ResponseEntity<MyMeetingsResponse> getMyMeetings(
             @RequestParam Long memberId, // TODO: JWT 구현 시 수정
             @RequestParam(required = false) Long cursor,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") @Min(1) @Max(50) int size
     ) {
         return ResponseEntity.ok(meetingReadService.getMyMeetings(memberId, cursor, size));
     }
