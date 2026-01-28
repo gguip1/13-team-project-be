@@ -11,6 +11,7 @@ public record KakaoOAuthProperties(
 	String clientId,
 	String clientSecret,
 	String redirectUri,
+	String frontendRedirectUrl,
 	String adminKey
 ) {
 }
