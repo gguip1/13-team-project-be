@@ -1,45 +1,38 @@
-name: Backend CI (Parallel)
+# =============================================================================
+# Spring Boot Backend CI Pipeline
+# =============================================================================
+# 트리거:
+#   - develop PR: 코드 검증
+#   - main push(머지): 코드 검증 + JAR 아티팩트 생성
+# 순서: Lint → Build → Static Analysis → Test → JAR (push만)
+# =============================================================================
+
+name: Backend CI
 
 on:
-  workflow_dispatch: # 수동 실행용
-
-env:
-  JAVA_VERSION: "21"
-  JAVA_DISTRIBUTION: "temurin"
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: be-ci-parallel-${{ github.workflow }}-${{ github.ref }}
+  group: be-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  JAVA_VERSION: "21"
+  JAVA_DISTRIBUTION: "temurin"
+
 jobs:
-  # ============================================
-  # lint와 build 병렬 실행
-  # ============================================
-  lint:
+  ci:
+    name: CI
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Lint (Checkstyle)
-        run: ./gradlew checkstyleMain checkstyleTest --no-daemon
-
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up JDK
@@ -61,98 +54,43 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      # Stage 1: Lint
+      - name: Lint (Checkstyle)
+        run: ./gradlew checkstyleMain checkstyleTest --no-daemon
+
+      # Stage 2: Build
       - name: Build
         run: ./gradlew compileJava compileTestJava --no-daemon
 
-      - name: Upload build output
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-output
-          path: build/
-          retention-days: 1
-
-  # ============================================
-  # static-analysis와 test 병렬 실행 (build 후)
-  # ============================================
-  static-analysis:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Download build output
-        uses: actions/download-artifact@v4
-        with:
-          name: build-output
-          path: build/
-
+      # Stage 3: Static Analysis
       - name: Static Analysis (SpotBugs)
         run: ./gradlew spotbugsMain spotbugsTest --no-daemon
 
-  test:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Download build output
-        uses: actions/download-artifact@v4
-        with:
-          name: build-output
-          path: build/
-
+      # Stage 4: Test
       - name: Test
         run: ./gradlew test jacocoTestReport jacocoTestCoverageVerification --no-daemon
 
-  # ============================================
-  # artifact (test 완료 후)
-  # ============================================
-  artifact:
-    needs: [lint, static-analysis, test]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Download build output
-        uses: actions/download-artifact@v4
-        with:
-          name: build-output
-          path: build/
-
+      # Stage 5: Build JAR (push only)
       - name: Build JAR
+        if: github.event_name == 'push'
         run: ./gradlew bootJar -x test --no-daemon
 
+      # Upload Reports
+      - name: Upload CI Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-reports
+          path: |
+            build/reports/checkstyle/
+            build/reports/spotbugs/
+            build/reports/jacoco/
+            build/test-results/
+          retention-days: 30
+
+      # Upload JAR (push only)
       - name: Upload JAR Artifact
+        if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
           name: application-jar
